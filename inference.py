@@ -138,19 +138,25 @@ ACTION_TYPES = {
 
 # ─────────────────── Episode runner ──────────────────────────────────────────
 
+def log_start(session_id: str, task_id: str):
+    print(json.dumps({"type": "START", "session_id": session_id, "task_id": task_id}), flush=True)
+
+def log_step(session_id: str, attempt: int, reward: float, done: bool):
+    print(json.dumps({"type": "STEP", "session_id": session_id, "step": attempt, "reward": float(reward), "done": done}), flush=True)
+
+def log_end(session_id: str, best_reward: float):
+    print(json.dumps({"type": "END", "session_id": session_id, "reward": float(best_reward)}), flush=True)
+
+
 def run_task(task_id: str, seed: int = 42) -> float:
     """Run one full episode for a task. Returns best reward achieved."""
-    print(f"\n{'─'*60}")
-    print(f"  Task: {task_id}")
-    print(f"{'─'*60}")
-
     # Reset environment
     try:
         reset_resp = http.post("/reset", json={"task_id": task_id, "seed": seed})
         reset_resp.raise_for_status()
         reset_data = reset_resp.json()
     except Exception as e:
-        print(f"  [ERROR] Failed to reset: {e}", file=sys.stderr)
+        print(f"[ERROR] Failed to reset: {e}", file=sys.stderr)
         return 0.0
 
     session_id = reset_data["session_id"]
@@ -159,12 +165,13 @@ def run_task(task_id: str, seed: int = 42) -> float:
     done = False
     attempt = 0
 
+    log_start(session_id, task_id)
+
     system_prompt = SYSTEM_PROMPTS.get(task_id, SYSTEM_PROMPTS["sql_fix"])
     action_type = ACTION_TYPES.get(task_id, "submit_query")
 
     while not done:
         attempt += 1
-        print(f"  Attempt {attempt}...", end=" ", flush=True)
 
         # Build user message from observation
         user_msg = obs.get("task_description", "")
@@ -176,7 +183,6 @@ def run_task(task_id: str, seed: int = 42) -> float:
         action = extract_action(llm_output, action_type)
 
         if not action:
-            print(f"[SKIP] Could not parse LLM response")
             # Submit empty to consume attempt
             action = {"type": action_type, "payload": ""}
 
@@ -197,12 +203,14 @@ def run_task(task_id: str, seed: int = 42) -> float:
         obs = step_data["observation"]
         best_reward = max(best_reward, reward)
 
-        print(f"reward={reward:.3f}" + (" ✓ DONE" if done else ""))
+        log_step(session_id, attempt, reward, done)
 
         if done:
             break
 
         time.sleep(0.5)  # rate limit courtesy
+
+    log_end(session_id, best_reward)
 
     # Clean up session
     try:
@@ -216,41 +224,21 @@ def run_task(task_id: str, seed: int = 42) -> float:
 # ─────────────────── Main ────────────────────────────────────────────────────
 
 def main() -> None:
-    print("=" * 60)
-    print("  DataPipelineEnv — Baseline Inference Script")
-    print(f"  Model: {MODEL_NAME}")
-    print(f"  Env:   {ENV_BASE_URL}")
-    print("=" * 60)
-
     # Verify env is reachable
     try:
         health = http.get("/health")
         health.raise_for_status()
-        print(f"  Environment health: {health.json()['status']}")
     except Exception as e:
         print(f"[FATAL] Environment not reachable at {ENV_BASE_URL}: {e}", file=sys.stderr)
         sys.exit(1)
 
     tasks = ["csv_cleaning", "sql_fix", "query_reverse"]
-    scores: dict[str, float] = {}
 
     for task_id in tasks:
         try:
-            score = run_task(task_id, seed=42)
+            run_task(task_id, seed=42)
         except Exception as e:
-            print(f"  [ERROR] Task {task_id} crashed: {e}", file=sys.stderr)
-            score = 0.0
-        scores[task_id] = score
-
-    print(f"\n{'='*60}")
-    print("  FINAL SCORES")
-    print(f"{'='*60}")
-    for task_id, score in scores.items():
-        print(f"  Task: {task_id:<20} | Score: {score:.3f}")
-    avg = sum(scores.values()) / len(scores)
-    print(f"{'─'*60}")
-    print(f"  Average score:          {avg:.3f}")
-    print(f"{'='*60}")
+            print(f"[ERROR] Task {task_id} crashed: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":
