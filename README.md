@@ -6,7 +6,7 @@ colorTo: purple
 sdk: docker
 app_port: 7860
 license: apache-2.0
-short_description: An advanced, highly-randomized Cloud IDE benchmark for evaluating AI Agents on complex SQL & CSV tasks.
+short_description: Cloud IDE benchmark for AI on SQL & CSV tasks.
 tags:
   - openenv
   - data-engineering
