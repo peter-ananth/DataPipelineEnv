@@ -138,14 +138,17 @@ ACTION_TYPES = {
 
 # ─────────────────── Episode runner ──────────────────────────────────────────
 
-def log_start(session_id: str, task_id: str):
-    print(json.dumps({"type": "START", "session_id": session_id, "task_id": task_id}), flush=True)
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] task={task} env={env} model={model}", flush=True)
 
-def log_step(session_id: str, attempt: int, reward: float, done: bool):
-    print(json.dumps({"type": "STEP", "session_id": session_id, "step": attempt, "reward": float(reward), "done": done}), flush=True)
+def log_step(step: int, action: str, reward: float, done: bool, error: str | None) -> None:
+    error_val = error if error is not None else "null"
+    done_val = str(done).lower()
+    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}", flush=True)
 
-def log_end(session_id: str, best_reward: float):
-    print(json.dumps({"type": "END", "session_id": session_id, "reward": float(best_reward)}), flush=True)
+def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
 
 
 def run_task(task_id: str, seed: int = 42) -> float:
@@ -164,8 +167,9 @@ def run_task(task_id: str, seed: int = 42) -> float:
     best_reward = 0.0
     done = False
     attempt = 0
+    rewards_list = []
 
-    log_start(session_id, task_id)
+    log_start(task=task_id, env="DataPipelineEnv", model=MODEL_NAME)
 
     system_prompt = SYSTEM_PROMPTS.get(task_id, SYSTEM_PROMPTS["sql_fix"])
     action_type = ACTION_TYPES.get(task_id, "submit_query")
@@ -187,6 +191,7 @@ def run_task(task_id: str, seed: int = 42) -> float:
             action = {"type": action_type, "payload": ""}
 
         # Submit action
+        error_msg = None
         try:
             step_resp = http.post(
                 f"/step/{session_id}",
@@ -195,6 +200,7 @@ def run_task(task_id: str, seed: int = 42) -> float:
             step_resp.raise_for_status()
             step_data = step_resp.json()
         except Exception as e:
+            error_msg = str(e)
             print(f"[ERROR] Step failed: {e}", file=sys.stderr)
             break
 
@@ -202,15 +208,17 @@ def run_task(task_id: str, seed: int = 42) -> float:
         done = step_data["done"]
         obs = step_data["observation"]
         best_reward = max(best_reward, reward)
+        rewards_list.append(reward)
 
-        log_step(session_id, attempt, reward, done)
+        log_step(step=attempt, action=repr(action["payload"][:50]), reward=reward, done=done, error=error_msg)
 
         if done:
             break
 
         time.sleep(0.5)  # rate limit courtesy
 
-    log_end(session_id, best_reward)
+    success = best_reward > 0.0
+    log_end(success=success, steps=attempt, score=best_reward, rewards=rewards_list)
 
     # Clean up session
     try:
