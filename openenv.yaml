@@ -1,0 +1,104 @@
+name: data-pipeline-env
+version: "1.0.0"
+description: >
+  A real-world environment simulating a data engineer's pipeline debugging workflow.
+  Agents clean messy CSVs and fix broken SQL queries using step/reset/state API.
+  All grading is fully deterministic — no LLM judges, no heuristics.
+
+tasks:
+  - id: csv_cleaning
+    name: CSV Data Cleaning
+    difficulty: easy
+    description: Fix a dirty e-commerce orders CSV with nulls, duplicates, type errors, and inconsistent country casing
+    max_steps: 5
+    reward_range: [0.0, 1.0]
+    action_type: clean_csv
+
+  - id: sql_fix
+    name: SQL Query Debugging
+    difficulty: medium
+    description: Fix a broken SQL query (syntax error, wrong JOIN type, missing WHERE, or wrong column name) to match expected output
+    max_steps: 5
+    reward_range: [0.0, 1.0]
+    action_type: submit_query
+
+  - id: query_reverse
+    name: SQL Reverse Engineering
+    difficulty: hard
+    description: Write a SQL query from scratch that produces a given expected output table — exact match required for full score
+    max_steps: 7
+    reward_range: [0.0, 1.0]
+    action_type: submit_query
+
+action_space:
+  type: object
+  properties:
+    type:
+      type: string
+      enum: [clean_csv, submit_query]
+      description: Action type matching the active task
+    payload:
+      type: string
+      description: Cleaned CSV string (clean_csv) or SQL query string (submit_query)
+  required: [type, payload]
+
+observation_space:
+  type: object
+  properties:
+    task_id:
+      type: string
+      description: Active task identifier
+    task_description:
+      type: string
+      description: Full task description including what to fix and action format
+    data_preview:
+      type: string
+      description: Preview of the data (dirty CSV head or expected output table)
+    schema:
+      type: string
+      description: Database schema or CSV column definitions
+    error_message:
+      type: string
+      nullable: true
+      description: Error from the previous step (null on first step)
+    attempt:
+      type: integer
+      description: Current attempt number (1-indexed)
+    max_attempts:
+      type: integer
+      description: Maximum attempts allowed for this task
+  required: [task_id, task_description, data_preview, schema, attempt, max_attempts]
+
+api:
+  reset:
+    method: POST
+    path: /reset
+    description: Start a new episode, returns session_id and initial observation
+  step:
+    method: POST
+    path: /step/{session_id}
+    description: Submit an action, returns observation + reward + done + info
+  state:
+    method: GET
+    path: /state/{session_id}
+    description: Get full current state snapshot
+  tasks:
+    method: GET
+    path: /tasks
+    description: List all available tasks with metadata
+  health:
+    method: GET
+    path: /health
+    description: Health check endpoint
+
+reward:
+  type: float
+  range: [0.0, 1.0]
+  grading: deterministic
+  partial_credit: true
+  notes: >
+    Rewards are never constant — each grader produces varied scores based on
+    how many issues were correctly fixed. Graders will not cause disqualification.
+
+endpoint: https://huggingface.co/spaces/<your-username>/data-pipeline-env
+tags: [openenv, data-engineering, sql, csv, debugging, pandas, sqlite]

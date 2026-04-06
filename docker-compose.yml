@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  data-pipeline-env:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: data-pipeline-env:latest
+    container_name: data-pipeline-env
+    ports:
+      - "7860:7860"
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Optional: run inference against local env
+  inference:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: data-pipeline-env:latest
+    depends_on:
+      data-pipeline-env:
+        condition: service_healthy
+    environment:
+      - API_BASE_URL=${API_BASE_URL}
+      - MODEL_NAME=${MODEL_NAME}
+      - HF_TOKEN=${HF_TOKEN}
+      - ENV_URL=http://data-pipeline-env:7860
+    command: ["python", "inference.py"]
+    profiles: ["inference"]

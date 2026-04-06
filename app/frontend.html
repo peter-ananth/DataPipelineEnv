@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DataPipelineEnv Cloud IDE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+       * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+       body { background: #0f172a; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; position: relative; }
+       
+       /* Dynamic Blobs for Background */
+       .blob { position: absolute; filter: blur(80px); opacity: 0.5; z-index: -1; border-radius: 50%; }
+       .blob-1 { top: -10%; left: -10%; width: 500px; height: 500px; background: #8b5cf6; animation: float 10s infinite alternate; }
+       .blob-2 { bottom: -10%; right: -10%; width: 600px; height: 600px; background: #3b82f6; animation: float 12s infinite alternate-reverse; }
+       @keyframes float { 0% { transform: translateY(0) scale(1); } 100% { transform: translateY(30px) scale(1.05); } }
+       
+       /* Navbar */
+       nav { padding: 1.25rem 2rem; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+       .logo { font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, #a855f7, #3b82f6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; }
+       
+       /* Grid Layout */
+       main { flex: 1; display: grid; grid-template-columns: 320px 1fr; gap: 1.5rem; padding: 1.5rem; max-width: 1600px; margin: 0 auto; width: 100%; z-index: 10; height: calc(100vh - 80px); }
+       
+       /* Glassmorphic Panels */
+       .panel { background: rgba(30, 41, 59, 0.75); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); overflow: hidden; }
+       h2 { font-size: 1.2rem; font-weight: 600; color: #e2e8f0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem; margin-bottom: 0.25rem; }
+       
+       /* Task Selector Buttons */
+       .task-btn { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); color: #f8fafc; padding: 1rem; border-radius: 8px; cursor: pointer; text-align: left; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+       .task-btn:hover { background: rgba(255,255,255,0.08); transform: translateY(-2px); }
+       .task-btn.active { background: rgba(59, 130, 246, 0.15); border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); border-left: 4px solid #3b82f6; }
+       .diff-tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; margin-top: 6px; }
+       .diff-easy { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+       .diff-medium { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+       .diff-hard { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+       
+       /* Action Buttons */
+       button.primary { background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 14px 0 rgba(139, 92, 246, 0.3); }
+       button.primary:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5); }
+       button.secondary { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: all 0.2s ease; }
+       button.secondary:hover { background: rgba(255,255,255,0.2); }
+       button:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+       
+       /* Visual Data */
+       pre { background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255,255,255,0.08); padding: 1rem; border-radius: 8px; color: #10b981; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.85rem; overflow-x: auto; white-space: pre-wrap; line-height: 1.5; }
+       
+       /* Status Indicators */
+       .stat-box { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3); padding: 0.6rem 1rem; border-radius: 6px; font-size: 0.85rem; }
+       .status-tag { padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+       .status-ok { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+       .status-err { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+       
+       .label-title { font-size: 0.75rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; }
+       
+       /* Monaco Container */
+       #monaco-container { width: 100%; flex: 1; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); background: #1e1e1e; min-height: 250px;}
+       
+       /* Sandbox Terminal */
+       #sandbox-terminal { flex: 1; background: #0f172a; border: 1px solid #3b82f6; border-radius: 8px; padding: 1rem; font-family: monospace; font-size: 0.85rem; overflow-y: auto; color: #cbd5e1; display: none; }
+       .sandbox-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+       .sandbox-table th, .sandbox-table td { border: 1px solid rgba(255,255,255,0.1); padding: 6px; text-align: left; }
+       .sandbox-table th { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+       
+       /* Observation HTML Table */
+       table.obs-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; background: rgba(15,23,42,0.8); border-radius: 8px; overflow:hidden; }
+       table.obs-table th, table.obs-table td { border: 1px solid rgba(255,255,255,0.05); padding: 8px 10px; text-align: left; }
+       table.obs-table th { background: rgba(255,255,255,0.05); color: #e2e8f0; font-weight: 600; }
+       table.obs-table tr:hover { background: rgba(255,255,255,0.02); }
+
+       #app-ui { display: none; }
+       
+       /* Custom Scrollbar */
+       ::-webkit-scrollbar { width: 8px; height: 8px; }
+       ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 4px; }
+       ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+       ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+    </style>
+    <!-- Load Monaco Editor -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.js"></script>
+</head>
+<body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <nav>
+        <div class="logo">Cloud IDE \ OpenEnv</div>
+        <div class="stat-box" style="margin: 0; min-width: 200px">
+            <span>Server Status:</span>
+            <span id="health-indicator" class="status-tag status-ok">Checking...</span>
+        </div>
+    </nav>
+    <main>
+        <!-- Sidebar -->
+        <div class="panel" style="overflow-y: auto;">
+            <h2>Challenge Benchmarks</h2>
+            <div id="task-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
+            <div style="flex:1"></div>
+            <button id="btn-start" class="primary" style="width: 100%; margin-top:20px;">Initialize Container</button>
+        </div>
+        
+        <!-- Main Area -->
+        <div class="panel" style="position: relative; padding: 1.5rem; display:flex; flex-direction:column; gap:1.5rem;">
+            <div id="loader" style="position: absolute; top:0;left:0;right:0;bottom:0; background: rgba(15,23,42,0.9); backdrop-filter: blur(8px); z-index: 50; display: flex; align-items:center; justify-content:center; font-weight:600; font-size:1.2rem; display:none; color: #3b82f6;">Loading container resources...</div>
+            
+            <div id="app-ui" style="display:flex; flex-direction:column; gap: 1.5rem; height: 100%;">
+                
+                <!-- TOP HORIZONTAL SPLIT: Instructions | Data Preview -->
+                <div style="display:grid; grid-template-columns: 1fr 1.5fr; gap: 1.5rem; height: 200px;">
+                    <div style="display:flex; flex-direction:column; background:rgba(0,0,0,0.2); padding:1rem; border-radius:8px; border:1px solid rgba(255,255,255,0.05); overflow-y:auto;">
+                        <div class="label-title" style="display:flex; justify-content:space-between;">
+                            <span>Objectives (<span id="task-title"></span>)</span>
+                            <span style="color:#3b82f6;">Attempt <span id="attempt-counter">1/10</span></span>
+                        </div>
+                        <div id="obs-desc" style="color: #cbd5e1; font-size:0.9rem; line-height:1.6; white-space: pre-wrap;"></div>
+                    </div>
+                    
+                    <div style="display:flex; flex-direction:column; background:rgba(0,0,0,0.2); padding:1rem; border-radius:8px; border:1px solid rgba(255,255,255,0.05); overflow:hidden;">
+                        <div class="label-title" id="obs-data-lbl">Observation / Data Preview</div>
+                        <div id="obs-data-container" style="flex:1; overflow:auto; color:#34d399;"></div>
+                    </div>
+                </div>
+
+                <!-- MIDDLE SPLIT: Code Editor | Terminal -->
+                <div style="display:flex; gap: 1.5rem; flex:1; min-height:0;">
+                    
+                    <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 0.5rem;">
+                            <div class="label-title" style="margin:0;">VS Code Editor (<span id="action-type-lbl" style="color:#a855f7;"></span>)</div>
+                        </div>
+                        <div id="monaco-container"></div>
+                    </div>
+
+                    <div id="sandbox-container" style="flex:1; display:flex; flex-direction:column; min-width:0; display:none;">
+                        <div class="label-title">Sandbox SQL Terminal</div>
+                        <div id="sandbox-terminal"></div>
+                    </div>
+                    
+                </div>
+
+                <!-- SUBMIT BAR -->
+                <div id="error-box" style="display:none; background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; padding: 1rem; border-radius: 6px; color: #fca5a5; font-family: monospace;"></div>
+                
+                <div style="display:flex; justify-content:space-between; align-items:center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem; margin-top:auto;">
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-size: 0.8rem; color: #94a3b8; text-transform:uppercase; font-weight:700;">Grader Reward</span>
+                        <div id="reward-display" style="font-size: 2rem; font-weight: 800; background: linear-gradient(to bottom right, #34d399, #3b82f6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; line-height:1;">0.000</div>
+                    </div>
+                    <div style="display:flex; gap: 1rem;">
+                        <button id="btn-sandbox" class="secondary" style="display:none;">Run Sandbox Query</button>
+                        <button id="btn-submit" class="primary">Submit Final Payload</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="welcome-ui" style="display:flex; height: 100%; justify-content:center; align-items:center; color: #94a3b8; text-align:center; flex-direction: column;">
+                <svg style="width: 80px; height: 80px; margin-bottom: 1.5rem; opacity: 0.4;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                <h2 style="border: none; padding: 0; font-size: 1.5rem; color: #e2e8f0;">DataPipelineEnv IDE</h2>
+                <p style="max-width: 450px; line-height: 1.6;">Select a benchmark on the left and initialize the container. The environment will spawn an in-memory database and sandbox exclusively for your session.</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentTaskId = null;
+        let activeSessionId = null;
+        let expectedActionType = null;
+        let editor = null;
+
+        const elTaskList = document.getElementById('task-list');
+        const elBtnStart = document.getElementById('btn-start');
+        const elBtnSubmit = document.getElementById('btn-submit');
+        const elBtnSandbox = document.getElementById('btn-sandbox');
+        const elHealth = document.getElementById('health-indicator');
+        const elLoader = document.getElementById('loader');
+
+        // Initialize Monaco
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+        require(['vs/editor/editor.main'], function() {
+            editor = monaco.editor.create(document.getElementById('monaco-container'), {
+                value: '-- Write your payload here...',
+                language: 'sql',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                minimap: { enabled: false },
+                fontSize: 14,
+                padding: { top: 16 }
+            });
+        });
+
+        async function init() {
+            try {
+                const hRes = await fetch('/health');
+                if(hRes.ok) {
+                    elHealth.textContent = 'ONLINE';
+                    elHealth.className = 'status-tag status-ok';
+                }
+                const res = await fetch('/tasks');
+                const tasks = await res.json();
+                
+                tasks.forEach((t, i) => {
+                    const btn = document.createElement('div');
+                    btn.className = 'task-btn';
+                    const diffColors = { 'easy': 'diff-easy', 'medium': 'diff-medium', 'hard': 'diff-hard' };
+                    const diffClass = diffColors[t.difficulty] || '';
+                    
+                    btn.innerHTML = `
+                        <div style="font-size: 1.05rem; font-weight: 600; margin-bottom: 4px;">${t.name}</div>
+                        <div class="diff-tag ${diffClass}">${t.difficulty}</div>
+                    `;
+                    btn.onclick = () => {
+                        document.querySelectorAll('.task-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        currentTaskId = t.id;
+                        expectedActionType = t.action_type;
+                        document.getElementById('action-type-lbl').textContent = expectedActionType;
+                        
+                        // Switch Monaco Language visually
+                        if(editor) {
+                            monaco.editor.setModelLanguage(editor.getModel(), t.difficulty === 'easy' ? 'plaintext' : 'sql');
+                        }
+                    };
+                    elTaskList.appendChild(btn);
+                    if(i === 0) btn.click();
+                });
+            } catch(e) {
+                elHealth.textContent = 'OFFLINE';
+                elHealth.className = 'status-tag status-err';
+            }
+        }
+
+        function showLoader(text, show) { 
+            elLoader.textContent = text;
+            elLoader.style.display = show ? 'flex' : 'none'; 
+        }
+
+        function parseCSVRow(str) {
+            const result = [];
+            let cur = '';
+            let inQuotes = false;
+            for (let c of str) {
+                if (c === '"') {
+                    inQuotes = !inQuotes;
+                } else if (c === ',' && !inQuotes) {
+                    result.push(cur);
+                    cur = '';
+                } else {
+                    cur += c;
+                }
+            }
+            result.push(cur);
+            return result;
+        }
+
+        function csvToHtmlTable(csvText) {
+            const lines = csvText.trim().split('\n');
+            if(lines.length === 0) return "";
+            let html = '<table class="obs-table"><thead><tr>';
+            const headers = parseCSVRow(lines[0]);
+            headers.forEach(h => html += `<th>${h}</th>`);
+            html += '</tr></thead><tbody>';
+            for(let i=1; i<lines.length; i++){
+                const columns = parseCSVRow(lines[i]);
+                html += '<tr>';
+                columns.forEach(c => {
+                    html += `<td>${c}</td>`;
+                });
+                html += '</tr>';
+            }
+            html += '</tbody></table>';
+            return html;
+        }
+
+        function renderObs(obs, rewardVal) {
+            document.getElementById('welcome-ui').style.display = 'none';
+            document.getElementById('app-ui').style.display = 'flex';
+            document.getElementById('task-title').textContent = obs.task_id.replace('_', ' ').toUpperCase();
+            document.getElementById('attempt-counter').textContent = obs.attempt + " / " + obs.max_attempts;
+            
+            // Format instructions nicely
+            document.getElementById('obs-desc').innerHTML = obs.task_description.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+            
+            // Render Datagrid or Schema
+            const dataContainer = document.getElementById('obs-data-container');
+            dataContainer.innerHTML = ''; // clear
+            
+            if (obs.task_id === 'csv_cleaning') {
+                document.getElementById('sandbox-container').style.display = 'none';
+                elBtnSandbox.style.display = 'none';
+                dataContainer.innerHTML = csvToHtmlTable(obs.data_preview);
+            } else {
+                // SQL Tasks get the Sandbox!
+                document.getElementById('sandbox-container').style.display = 'flex';
+                elBtnSandbox.style.display = 'block';
+                
+                // For Medium/Hard, the first part is often Schema string, then preview
+                let html = `<div style="margin-bottom:10px; font-family:monospace; font-size:0.8rem; color:#93c5fd;">SCHEMA: ${obs.schema}</div>`;
+                if(obs.data_preview && obs.data_preview !== obs.schema) {
+                     html += `<div style="color:#d1d5db; margin-bottom:5px; font-size:0.8rem;">EXPECTED OUTPUT TABLE:</div>`;
+                     html += csvToHtmlTable(obs.data_preview);
+                }
+                dataContainer.innerHTML = html;
+            }
+            
+            const errBox = document.getElementById('error-box');
+            if(obs.error_message) {
+                errBox.style.display = 'block';
+                errBox.innerHTML = `<strong>Grader Rejection:</strong><br>${obs.error_message}`;
+            } else {
+                errBox.style.display = 'none';
+            }
+            if(rewardVal !== undefined) {
+                document.getElementById('reward-display').textContent = parseFloat(rewardVal).toFixed(3);
+            }
+        }
+
+        elBtnStart.onclick = async () => {
+            if(!currentTaskId) return;
+            showLoader("Booting specific container...", true);
+            try {
+                const res = await fetch('/reset', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({task_id: currentTaskId})
+                });
+                const data = await res.json();
+                activeSessionId = data.session_id;
+                
+                if(editor) editor.setValue('');
+                document.getElementById('reward-display').textContent = '0.000';
+                document.getElementById('sandbox-terminal').innerHTML = '<span style="color:#64748b;">// System ready. Execute a SELECT query to explore the in-memory database.</span>';
+                renderObs(data.observation);
+            } catch (e) {
+                alert("Failed to start session. API might be down.");
+            }
+            showLoader("", false);
+        };
+
+        elBtnSandbox.onclick = async () => {
+             if(!activeSessionId) {
+                 alert("Sandbox Error: No Active Session. Please click 'Initialize Container' on the left side to start a session before querying.");
+                 return;
+             }
+             if(!editor) {
+                 alert("Sandbox Error: Code Engine not loaded.");
+                 return;
+             }
+             const query = editor.getValue();
+             if(!query.trim()) {
+                 alert("Sandbox Error: Please type a SQL query in the VS Code editor first.");
+                 return;
+             }
+
+             const term = document.getElementById('sandbox-terminal');
+             term.innerHTML = `<span style="color:#3b82f6;">> Executing query...</span>`;
+             
+             try {
+                const res = await fetch('/sandbox/' + activeSessionId, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({query: query})
+                });
+                const data = await res.json();
+                
+                if(!data.success) {
+                    term.innerHTML = `<span style="color:#ef4444;">Error: ${data.error}</span>`;
+                } else {
+                    let html = `<div style="color:#10b981;">Success! Rows returned: ${data.row_count}</div>`;
+                    if(data.data.length > 0) {
+                        html += `<table class="sandbox-table"><thead><tr>`;
+                        data.columns.forEach(c => html += `<th>${c}</th>`);
+                        html += `</tr></thead><tbody>`;
+                        data.data.forEach(r => {
+                            html += `<tr>`;
+                            r.forEach(c => html += `<td>${c}</td>`);
+                            html += `</tr>`;
+                        });
+                        html += `</tbody></table>`;
+                    }
+                    term.innerHTML = html;
+                }
+             } catch(e) {
+                term.innerHTML = `<span style="color:#ef4444;">Network Error reaching Sandbox.</span>`;
+             }
+        };
+
+        elBtnSubmit.onclick = async () => {
+            if(!activeSessionId) {
+                alert("Submission Error: No Active Session. Click 'Initialize Container' first.");
+                return;
+            }
+            if(!editor) return;
+            
+            showLoader("Validating Payload...", true);
+            const payload = editor.getValue();
+            try {
+                const res = await fetch('/step/' + activeSessionId, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({type: expectedActionType, payload: payload})
+                });
+                const data = await res.json();
+                renderObs(data.observation, data.reward.value);
+                
+                if(data.done) {
+                    setTimeout(() => {
+                        if (data.reward.value === 1.0) {
+                            alert("🏆 SUCCESS! You achieved a perfect score of 1.0!");
+                        } else {
+                            alert("❌ Session Ended. Max attempts reached. Score: " + data.reward.value);
+                        }
+                    }, 300);
+                }
+            } catch (e) {
+                alert("Failed to submit step.");
+            }
+            showLoader("", false);
+        };
+
+        init();
+    </script>
+</body>
+</html>
