@@ -56,7 +56,7 @@ class TestTasksEndpoint:
 class TestResetEndpoint:
     def test_reset_returns_session_and_observation(self, client):
         resp = client.post("/reset", json={"task_id": "csv_cleaning"})
-        assert resp.status_code == 201
+        assert resp.status_code == 200
         data = resp.json()
         assert "session_id" in data
         assert "observation" in data
@@ -67,12 +67,12 @@ class TestResetEndpoint:
 
     def test_reset_default_task_works(self, client):
         resp = client.post("/reset", json={})
-        assert resp.status_code == 201
+        assert resp.status_code == 200
 
     def test_reset_all_tasks(self, client):
         for task_id in ["csv_cleaning", "sql_fix", "query_reverse"]:
             resp = client.post("/reset", json={"task_id": task_id, "seed": 7})
-            assert resp.status_code == 201, f"Failed for {task_id}"
+            assert resp.status_code == 200, f"Failed for {task_id}"
 
 
 class TestStepEndpoint:

@@ -203,7 +203,7 @@ async def list_tasks() -> list[TaskInfo]:
     return TASK_CATALOG
 
 
-@app.post("/reset", response_model=ResetResponse, status_code=status.HTTP_201_CREATED, tags=["Environment"])
+@app.post("/reset", response_model=ResetResponse, status_code=status.HTTP_200_OK, tags=["Environment"])
 async def reset(request: Optional[ResetRequest] = None) -> ResetResponse:
     """
     Start a new episode. Returns a session_id and initial observation.
