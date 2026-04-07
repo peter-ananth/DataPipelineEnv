@@ -22,12 +22,13 @@ import pandas as pd
 def grade_csv_clean(submitted_df: pd.DataFrame, reference_df: pd.DataFrame) -> float:
     """
     Grade a cleaned CSV submission against the reference DataFrame.
+    All criteria are derived dynamically from reference_df.
 
     Partial credit breakdown:
-      +0.25  Duplicates removed (row count matches)
-      +0.25  Null/NaN values handled (null count matches or lower)
-      +0.25  Data types correct (price → float, quantity → int)
-      +0.25  Country column normalized (Title Case)
+      +0.25  Row count matches reference (deduplication + any row filters)
+      +0.25  Null count matches reference (across all common columns)
+      +0.25  Numeric types correct (price -> float, quantity -> int where applicable)
+      +0.25  Country casing matches reference (upper / lower / title)
 
     Returns float in [0.0, 1.0].
     """
@@ -49,19 +50,14 @@ def grade_csv_clean(submitted_df: pd.DataFrame, reference_df: pd.DataFrame) -> f
             # Partial: fewer rows than reference but still reduced some dupes
             score += 0.10
 
-        # ── Criterion 2: Nulls handled ─────────────────────────────────────
-        # Reference has zero nulls in customer_name column
-        if "customer_name" in submitted_df.columns:
-            sub_nulls = submitted_df["customer_name"].isna().sum()
-            ref_nulls = reference_df["customer_name"].isna().sum() if "customer_name" in reference_df.columns else 0
-            if sub_nulls == ref_nulls:
-                score += 0.25
-            elif sub_nulls < submitted_df.shape[0] * 0.05:
-                score += 0.10
-        else:
-            # Column may be renamed; check overall null fraction
-            if submitted_df.isna().sum().sum() == 0:
-                score += 0.25
+        # ── Criterion 2: Null handling — compare against reference ───────────
+        common_cols = [c for c in reference_df.columns if c in submitted_df.columns]
+        ref_total_nulls = reference_df[common_cols].isna().sum().sum()
+        sub_total_nulls = submitted_df[common_cols].isna().sum().sum()
+        if sub_total_nulls == ref_total_nulls:
+            score += 0.25
+        elif sub_total_nulls <= ref_total_nulls + 2:
+            score += 0.10
 
         # ── Criterion 3: Data types ─────────────────────────────────────────
         type_score = 0.0
@@ -77,12 +73,16 @@ def grade_csv_clean(submitted_df: pd.DataFrame, reference_df: pd.DataFrame) -> f
             except Exception:
                 pass
 
-        if "quantity" in submitted_df.columns:
+        if "quantity" in submitted_df.columns and "quantity" in reference_df.columns:
             try:
-                # Pandas reads ints with NaNs as float64. We must allow it if values are whole numbers.
+                sub_qty = submitted_df["quantity"].dropna()
                 is_int_type = submitted_df["quantity"].dtype in [np.int64, np.int32, int]
-                is_float_int = submitted_df["quantity"].dtype in [np.float64, np.float32, float] and submitted_df["quantity"].dropna().apply(float.is_integer).all()
-                if is_int_type or (is_float_int and not submitted_df["quantity"].dropna().empty):
+                is_nullable_int = str(submitted_df["quantity"].dtype) == "Int64"
+                is_float_int = (
+                    submitted_df["quantity"].dtype in [np.float64, np.float32, float]
+                    and sub_qty.apply(float.is_integer).all()
+                )
+                if is_int_type or is_nullable_int or (is_float_int and not sub_qty.empty):
                     type_score += 0.5
                 else:
                     pd.to_numeric(submitted_df["quantity"], errors="raise")
