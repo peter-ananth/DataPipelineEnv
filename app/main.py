@@ -204,11 +204,14 @@ async def list_tasks() -> list[TaskInfo]:
 
 
 @app.post("/reset", response_model=ResetResponse, status_code=status.HTTP_201_CREATED, tags=["Environment"])
-async def reset(request: ResetRequest) -> ResetResponse:
+async def reset(request: Optional[ResetRequest] = None) -> ResetResponse:
     """
     Start a new episode. Returns a session_id and initial observation.
     Each call creates a fresh environment instance.
     """
+    if request is None:
+        request = ResetRequest()
+        
     valid_ids = {t.id for t in TASK_CATALOG}
     if request.task_id not in valid_ids:
         raise HTTPException(
