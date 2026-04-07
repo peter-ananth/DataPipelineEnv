@@ -40,7 +40,7 @@ dev = [
 
 [project.scripts]
 data-pipeline-env = "app.main:app"
-serve = "server.app:app"
+server = "server.app:main"
 
 [project.urls]
 Homepage = "https://huggingface.co/spaces/pete5002/DataPipelineEnv"
