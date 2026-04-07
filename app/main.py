@@ -230,6 +230,13 @@ async def reset(request: Optional[ResetRequest] = None) -> ResetResponse:
         )
 
     _sessions[session_id] = env
+    
+    # Bounded cache to prevent OOM
+    if len(_sessions) > 500:
+        oldest_id = next(iter(_sessions))
+        oldest_env = _sessions.pop(oldest_id)
+        oldest_env.close()
+
     return ResetResponse(session_id=session_id, observation=observation)
 
 

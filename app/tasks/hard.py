@@ -49,6 +49,11 @@ def setup_database(seed: int | None = None) -> sqlite3.Connection:
         
     conn.executemany("INSERT INTO sales VALUES (?, ?, ?, ?, ?, ?, ?, ?)", sales)
     conn.commit()
+    
+    # Execution Bounding (Timeout)
+    def _abort(): return 1
+    conn.set_progress_handler(_abort, 50_000_000)
+    
     return conn
 
 # ─────────────────── Target queries (what agents must reverse-engineer) ───────

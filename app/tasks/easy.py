@@ -141,11 +141,6 @@ def get_reference_df(seed: int | None = None) -> pd.DataFrame:
     return df
 
 
-def get_dirty_csv_string() -> str:
-    """Return the raw dirty CSV content as a string."""
-    return DIRTY_CSV.read_text()
-
-
 # ─────────────────── Task metadata ───────────────────────────────────────────
 
 TASK_ID = "csv_cleaning"

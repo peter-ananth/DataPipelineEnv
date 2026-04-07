@@ -93,9 +93,9 @@ class TestStep:
 
     def test_step_done_on_perfect_score(self, env):
         """Perfect CSV submission should terminate the episode."""
-        from app.tasks.easy import get_reference_df, get_dirty_csv_string
-        env.reset(task_id="csv_cleaning")
-        ref = get_reference_df()
+        from app.tasks.easy import get_reference_df
+        env.reset(task_id="csv_cleaning", seed=42)
+        ref = get_reference_df(seed=42)
         _, reward, done, _ = env.step({
             "type": "clean_csv",
             "payload": ref.to_csv(index=False),

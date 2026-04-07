@@ -79,7 +79,10 @@ def grade_csv_clean(submitted_df: pd.DataFrame, reference_df: pd.DataFrame) -> f
 
         if "quantity" in submitted_df.columns:
             try:
-                if submitted_df["quantity"].dtype in [np.int64, np.int32, int]:
+                # Pandas reads ints with NaNs as float64. We must allow it if values are whole numbers.
+                is_int_type = submitted_df["quantity"].dtype in [np.int64, np.int32, int]
+                is_float_int = submitted_df["quantity"].dtype in [np.float64, np.float32, float] and submitted_df["quantity"].dropna().apply(float.is_integer).all()
+                if is_int_type or (is_float_int and not submitted_df["quantity"].dropna().empty):
                     type_score += 0.5
                 else:
                     pd.to_numeric(submitted_df["quantity"], errors="raise")
@@ -90,13 +93,21 @@ def grade_csv_clean(submitted_df: pd.DataFrame, reference_df: pd.DataFrame) -> f
         score += 0.25 * type_score
 
         # ── Criterion 4: Country casing normalization ───────────────────────
-        if "country" in submitted_df.columns:
-            valid = submitted_df["country"].dropna()
-            if len(valid) > 0:
-                title_cased = valid.apply(
-                    lambda x: x == x.title() if isinstance(x, str) else False
-                )
-                casing_ratio = title_cased.mean()
+        if "country" in submitted_df.columns and "country" in reference_df.columns:
+            valid_sub = submitted_df["country"].dropna()
+            valid_ref_str = reference_df["country"].dropna().astype(str)
+            if len(valid_sub) > 0 and len(valid_ref_str) > 0:
+                is_upper = (valid_ref_str == valid_ref_str.str.upper()).all()
+                is_lower = (valid_ref_str == valid_ref_str.str.lower()).all()
+                
+                if is_upper:
+                    cased = valid_sub.apply(lambda x: x == x.upper() if isinstance(x, str) else False)
+                elif is_lower:
+                    cased = valid_sub.apply(lambda x: x == x.lower() if isinstance(x, str) else False)
+                else:
+                    cased = valid_sub.apply(lambda x: x == x.title() if isinstance(x, str) else False)
+                
+                casing_ratio = cased.mean()
                 if casing_ratio >= 0.95:
                     score += 0.25
                 elif casing_ratio >= 0.70:

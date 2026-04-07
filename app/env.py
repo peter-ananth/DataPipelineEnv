@@ -220,7 +220,7 @@ class DataPipelineEnv:
         try:
             # Simple protection against destructive queries
             q_upper = query.strip().upper()
-            if not q_upper.startswith(("SELECT", "WITH", "PRAGMA")):
+            if not q_upper.startswith(("SELECT", "WITH")):
                 return {"error": "Sandbox only supports read-only SELECT or WITH queries."}
                 
             df = pd.read_sql_query(query, conn)
