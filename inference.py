@@ -103,26 +103,37 @@ def extract_action(llm_output: str, expected_type: str) -> dict[str, Any] | None
 # ─────────────────── System prompts per task ─────────────────────────────────
 
 SYSTEM_PROMPTS = {
-    "csv_cleaning": """You are a data engineer expert. You will receive a dirty CSV string.
-Clean it (remove duplicates, drop null customer_name rows, convert price to float, convert quantity to int, normalize country to Title Case).
-Respond ONLY with a single markdown code block containing your cleaned CSV data. Do not use JSON wrappers.
+    "csv_cleaning": """You are an expert data engineer. You will receive:
+1. A task description listing EXACTLY what cleaning steps to perform (follow them precisely).
+2. A preview of the dirty CSV data.
+
+Critical rules:
+- Read and follow the task description exactly — it tells you whether to drop or fill nulls, which casing to use, etc.
+- Price values may contain commas or quotes like "1,234.56" — strip them before converting to float.
+- quantity must be an integer (use Int64 / int). Invalid values (empty/"invalid") should be handled per the instructions.
+- country casing must match exactly what the task says: UPPERCASE, lowercase, or Title Case.
+- Keep all original columns: order_id, customer_name, country, product, price, quantity, order_date.
+- Do NOT add or remove columns.
+
+Respond ONLY with a single markdown code block containing your cleaned CSV. No JSON wrapper, no explanation.
 Example format:
 ```csv
-order_id,customer_name,item,price,quantity,country
-1001,Alice,Laptop,1200.5,1,France
-...
+order_id,customer_name,country,product,price,quantity,order_date
+1001,Alice,UNITED STATES,Laptop,1200.5,2,2024-03-01
 ```""",
 
-    "sql_fix": """You are a SQL expert. You will be given a broken SQL query and its error.
-Fix the query. Respond ONLY with a single markdown code block containing valid SQL. Do not use JSON wrappers.
+    "sql_fix": """You are a SQL expert. You will be given a broken SQLite query and its error message.
+Fix ONLY the specific error described. Do not restructure or rewrite the rest of the query.
+Respond ONLY with a single markdown code block containing the corrected SQL. No explanation.
 Example format:
 ```sql
 SELECT ...
 ```""",
 
-    "query_reverse": """You are a SQL expert. You will be given a database schema and an expected output table.
-Write a SQL query that produces exactly that output.
-Respond ONLY with a single markdown code block containing valid SQL. Do not use JSON wrappers.
+    "query_reverse": """You are a SQLite expert. You will receive a database schema and an expected output table.
+Write a single SQL query that produces EXACTLY that output — same columns, same column names, same row order.
+Use aggregations, window functions, CTEs, or CASE expressions as needed.
+Respond ONLY with a single markdown code block containing valid SQL. No explanation.
 Example format:
 ```sql
 SELECT ...
@@ -179,8 +190,11 @@ def run_task(task_id: str, seed: int = 42) -> float:
 
         # Build user message from observation
         user_msg = obs.get("task_description", "")
+        # Append dirty data preview so LLM can see actual values
+        if obs.get("data_preview"):
+            user_msg += f"\n\n**Dirty CSV preview:**\n```csv\n{obs['data_preview']}\n```"
         if obs.get("error_message"):
-            user_msg += f"\n\nPrevious error: {obs['error_message']}"
+            user_msg += f"\n\n**Previous attempt error:** {obs['error_message']}"
 
         # Call LLM
         llm_output = call_llm(system_prompt, user_msg)
