@@ -10,7 +10,7 @@ tasks:
     name: CSV Data Cleaning
     difficulty: easy
     description: Fix a dirty e-commerce orders CSV with nulls, duplicates, type errors, and inconsistent country casing
-    max_steps: 5
+    max_attempts: 5
     reward_range: [0.0, 1.0]
     action_type: clean_csv
 
@@ -18,7 +18,7 @@ tasks:
     name: SQL Query Debugging
     difficulty: medium
     description: Fix a broken SQL query (syntax error, wrong JOIN type, missing WHERE, or wrong column name) to match expected output
-    max_steps: 5
+    max_attempts: 5
     reward_range: [0.0, 1.0]
     action_type: submit_query
 
@@ -26,7 +26,7 @@ tasks:
     name: SQL Reverse Engineering
     difficulty: hard
     description: Write a SQL query from scratch that produces a given expected output table — exact match required for full score
-    max_steps: 7
+    max_attempts: 7
     reward_range: [0.0, 1.0]
     action_type: submit_query
 
@@ -100,5 +100,5 @@ reward:
     Rewards are never constant — each grader produces varied scores based on
     how many issues were correctly fixed. Graders will not cause disqualification.
 
-endpoint: https://huggingface.co/spaces/<your-username>/data-pipeline-env
+endpoint: https://huggingface.co/spaces/pete5002/DataPipelineEnv
 tags: [openenv, data-engineering, sql, csv, debugging, pandas, sqlite]
