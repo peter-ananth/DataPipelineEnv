@@ -109,11 +109,15 @@ def get_reference_df(seed: int | None = None) -> pd.DataFrame:
     if "drop_dup" in ops:
         df = df.drop_duplicates()
 
+    # Strip leading/trailing whitespace from customer_name (generator injects leading space)
+    if "customer_name" in df.columns:
+        df["customer_name"] = df["customer_name"].str.strip()
+
     if "drop_null_name" in ops:
-        df = df.dropna(subset=["customer_name"])
+        df = df[df["customer_name"].notna() & (df["customer_name"] != "")]
     if "fill_null_guest" in ops:
-        
         df["customer_name"] = df["customer_name"].fillna("GUEST")
+        df.loc[df["customer_name"] == "", "customer_name"] = "GUEST"
 
     # Clean price string for numeric conversion
     df["price"] = pd.to_numeric(df["price"].str.replace(",", "").str.strip(), errors="coerce")
