@@ -26,20 +26,22 @@ from openai import OpenAI
 # ─────────────────── Config from environment variables ───────────────────────
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "")
-MODEL_NAME = os.environ.get("MODEL_NAME", "")
+MODEL_NAME = os.environ.get("MODEL_NAME", "meta-llama/Meta-Llama-3-70B-Instruct")
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
 ENV_BASE_URL = os.environ.get("ENV_URL", "http://localhost:7860")
 
 # Validate required env vars
-_MISSING = [k for k, v in {
-    "API_BASE_URL": API_BASE_URL,
-    "MODEL_NAME": MODEL_NAME,
-    "HF_TOKEN": HF_TOKEN,
-}.items() if not v]
+_CRITICAL = ["API_BASE_URL", "HF_TOKEN"]
+_MISSING = [k for k in _CRITICAL if not os.environ.get(k)]
 
 if _MISSING:
-    print(f"[ERROR] Missing required environment variables: {', '.join(_MISSING)}", file=sys.stderr)
+    print(f"[ERROR] Missing critical environment variables: {', '.join(_MISSING)}", file=sys.stderr)
+    print(f"[INFO] MODEL_NAME is set to: {MODEL_NAME}", file=sys.stderr)
+    # Note: We exit if API_BASE_URL or HF_TOKEN are missing as the agent cannot function.
     sys.exit(1)
+
+if not os.environ.get("MODEL_NAME"):
+    print(f"[WARN] MODEL_NAME not found in environment. Defaulting to: {MODEL_NAME}", file=sys.stderr)
 
 # OpenAI client pointed at HF Inference endpoint
 client = OpenAI(
