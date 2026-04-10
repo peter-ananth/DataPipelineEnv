@@ -157,24 +157,24 @@ class TestGradeCsvClean:
     def test_perfect_score(self, clean_df):
         """A perfectly clean DF scores 1.0."""
         score = grader.grade_csv_clean(clean_df, clean_df)
-        assert score == pytest.approx(1.0, abs=0.05)
+        assert score == pytest.approx(0.99, abs=0.01)
 
     def test_zero_score_empty_submission(self, clean_df):
         """Empty submission returns 0.0."""
         score = grader.grade_csv_clean(pd.DataFrame(), clean_df)
-        assert score == 0.0
+        assert score == 0.01
 
     def test_zero_score_none_submission(self, clean_df):
         """None submission returns 0.0."""
         score = grader.grade_csv_clean(None, clean_df)
-        assert score == 0.0
+        assert score == 0.01
 
     def test_partial_credit_only_deduped(self, clean_df, dirty_df):
         """Deduping only gets partial credit, not full."""
         # Remove dupes but keep other issues
         partial = dirty_df.drop_duplicates().reset_index(drop=True)
         score = grader.grade_csv_clean(partial, clean_df)
-        assert 0.0 < score < 1.0
+        assert 0.01 < score < 0.99
 
     def test_partial_credit_types_fixed_only(self, clean_df, dirty_df):
         """Fixing types and casing but not nulls/dupes gets partial credit."""
@@ -182,7 +182,7 @@ class TestGradeCsvClean:
         partial["price"] = pd.to_numeric(partial["price"], errors="coerce")
         partial["country"] = partial["country"].str.title()
         score = grader.grade_csv_clean(partial, clean_df)
-        assert 0.0 < score < 1.0
+        assert 0.01 < score < 0.99
 
     def test_score_varies_across_inputs(self, clean_df, dirty_df):
         """Grader must return different scores for different inputs (no-constant check)."""
@@ -194,7 +194,7 @@ class TestGradeCsvClean:
         """Reward must always be in [0.0, 1.0]."""
         for df in [clean_df, dirty_df, pd.DataFrame(), pd.DataFrame({"x": [1, 2]})]:
             score = grader.grade_csv_clean(df, clean_df)
-            assert 0.0 <= score <= 1.0
+            assert 0.01 <= score <= 0.99
 
     def test_country_casing_partial(self, clean_df):
         """Partial casing improvement gives partial credit."""
@@ -209,7 +209,7 @@ class TestGradeCsvClean:
         """Submission with wrong columns doesn't crash."""
         bad = pd.DataFrame({"foo": [1, 2], "bar": ["a", "b"]})
         score = grader.grade_csv_clean(bad, clean_df)
-        assert 0.0 <= score <= 1.0
+        assert 0.01 <= score <= 0.99
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -222,17 +222,17 @@ class TestGradeSqlFix:
         """Correct query returns 1.0."""
         query = "SELECT order_id, customer_id, quantity, unit_price FROM orders WHERE status='completed' ORDER BY order_id"
         score = grader.grade_sql_fix(query, in_memory_db_medium, expected_df_medium)
-        assert score == pytest.approx(1.0, abs=0.01)
+        assert score == pytest.approx(0.99, abs=0.01)
 
     def test_zero_score_empty_query(self, in_memory_db_medium, expected_df_medium):
         """Empty query returns 0.0."""
         score = grader.grade_sql_fix("", in_memory_db_medium, expected_df_medium)
-        assert score == 0.0
+        assert score == 0.01
 
     def test_zero_score_syntax_error(self, in_memory_db_medium, expected_df_medium):
         """Syntax error returns 0.0."""
         score = grader.grade_sql_fix("SELECT FROM broken ??", in_memory_db_medium, expected_df_medium)
-        assert score == 0.0
+        assert score == 0.01
 
     def test_partial_score_correct_columns_wrong_rows(self, in_memory_db_medium, expected_df_medium):
         """Correct columns, wrong filter returns 0.5."""
@@ -245,7 +245,7 @@ class TestGradeSqlFix:
         """Wrong columns returns 0.0."""
         query = "SELECT status FROM orders"
         score = grader.grade_sql_fix(query, in_memory_db_medium, expected_df_medium)
-        assert score == 0.0
+        assert score == 0.01
 
     def test_score_varies_across_inputs(self, in_memory_db_medium, expected_df_medium):
         """Grader must return different scores (not constant)."""
@@ -264,7 +264,7 @@ class TestGradeSqlFix:
         queries = ["", "SELECT 1", "INVALID SQL !!!!", "SELECT * FROM orders"]
         for q in queries:
             score = grader.grade_sql_fix(q, in_memory_db_medium, expected_df_medium)
-            assert 0.0 <= score <= 1.0
+            assert 0.01 <= score <= 0.99
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -277,29 +277,29 @@ class TestGradeQueryReverse:
         """Correct query gets 1.0."""
         query = "SELECT region, SUM(revenue) as total_revenue FROM sales GROUP BY region ORDER BY total_revenue DESC"
         score = grader.grade_query_reverse(query, in_memory_db_hard, expected_df_hard)
-        assert score == pytest.approx(1.0, abs=0.01)
+        assert score == pytest.approx(0.99, abs=0.01)
 
     def test_zero_score_empty_query(self, in_memory_db_hard, expected_df_hard):
         score = grader.grade_query_reverse("", in_memory_db_hard, expected_df_hard)
-        assert score == 0.0
+        assert score == 0.01
 
     def test_zero_score_syntax_error(self, in_memory_db_hard, expected_df_hard):
         score = grader.grade_query_reverse("SELECT ??? BROKEN", in_memory_db_hard, expected_df_hard)
-        assert score == 0.0
+        assert score == 0.01
 
     def test_penalized_extra_columns(self, in_memory_db_hard, expected_df_hard):
         """Extra unnecessary columns reduces score below 1.0 but stays >= 0.5."""
         query = "SELECT region, salesperson, SUM(revenue) as total_revenue FROM sales GROUP BY region, salesperson ORDER BY total_revenue DESC"
         score = grader.grade_query_reverse(query, in_memory_db_hard, expected_df_hard)
         # This returns wrong rows anyway, so score will vary
-        assert 0.0 <= score <= 1.0
+        assert 0.01 <= score <= 0.99
 
     def test_partial_match_correct_columns_wrong_rows(self, in_memory_db_hard, expected_df_hard):
         """Partial row overlap with correct columns gets partial credit."""
         # A query that gets some but not all rows
         query = "SELECT region, SUM(revenue) as total_revenue FROM sales WHERE region='North' GROUP BY region"
         score = grader.grade_query_reverse(query, in_memory_db_hard, expected_df_hard)
-        assert 0.0 <= score < 1.0
+        assert 0.01 <= score < 0.99
 
     def test_score_varies_across_inputs(self, in_memory_db_hard, expected_df_hard):
         """Non-constant reward."""
@@ -316,4 +316,4 @@ class TestGradeQueryReverse:
         queries = ["", "SELECT 1", "DROP TABLE sales", "SELECT * FROM sales LIMIT 1"]
         for q in queries:
             score = grader.grade_query_reverse(q, in_memory_db_hard, expected_df_hard)
-            assert 0.0 <= score <= 1.0
+            assert 0.01 <= score <= 0.99

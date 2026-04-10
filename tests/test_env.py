@@ -66,12 +66,12 @@ class TestStep:
     def test_step_reward_in_range(self, env):
         env.reset(task_id="csv_cleaning")
         _, reward, _, _ = env.step({"type": "clean_csv", "payload": "order_id,price\n1,bad"})
-        assert 0.0 <= reward <= 1.0
+        assert 0.01 <= reward <= 0.99
 
     def test_step_wrong_action_type_gives_zero(self, env):
         env.reset(task_id="csv_cleaning")
         _, reward, _, info = env.step({"type": "submit_query", "payload": "SELECT 1"})
-        assert reward == 0.0
+        assert reward == 0.01
 
     def test_step_on_done_episode_returns_done(self, env):
         env.reset(task_id="csv_cleaning")
@@ -100,7 +100,7 @@ class TestStep:
             "type": "clean_csv",
             "payload": ref.to_csv(index=False),
         })
-        assert reward == pytest.approx(1.0, abs=0.05)
+        assert reward == pytest.approx(0.99, abs=0.01)
         assert done is True
 
     def test_step_sql_fix_correct(self, env):
@@ -110,7 +110,7 @@ class TestStep:
             "type": "submit_query",
             "payload": "SELECT 1",  # won't match, just test it returns float
         })
-        assert 0.0 <= reward <= 1.0
+        assert 0.01 <= reward <= 0.99
 
     def test_step_no_crash_on_bad_sql(self, env):
         env.reset(task_id="sql_fix", seed=0)
@@ -118,7 +118,7 @@ class TestStep:
             "type": "submit_query",
             "payload": "DROP TABLE orders; --",
         })
-        assert 0.0 <= reward <= 1.0
+        assert 0.01 <= reward <= 0.99
 
 
 class TestState:
@@ -140,4 +140,4 @@ class TestState:
         env.reset(task_id="csv_cleaning")
         env.step({"type": "clean_csv", "payload": ""})
         state = env.state()
-        assert state["best_reward"] == max(state["episode_rewards"])
+        assert state["best_reward"] == max(state["episode_rewards"]) if state["episode_rewards"] else 0.01

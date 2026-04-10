@@ -117,7 +117,7 @@ TASK_CATALOG: list[TaskInfo] = [
         description="Fix a dirty e-commerce orders CSV: remove duplicates, handle nulls, fix data types, normalize country casing.",
         max_attempts=easy.MAX_ATTEMPTS,
         action_type="clean_csv",
-        reward_range=[0.0, 1.0],
+        reward_range=[0.01, 0.99],
     ),
     TaskInfo(
         id=medium.TASK_ID,
@@ -126,7 +126,7 @@ TASK_CATALOG: list[TaskInfo] = [
         description="Fix a broken SQL query (syntax error, wrong JOIN, missing WHERE, or wrong column) to match expected results.",
         max_attempts=medium.MAX_ATTEMPTS,
         action_type="submit_query",
-        reward_range=[0.0, 1.0],
+        reward_range=[0.01, 0.99],
     ),
     TaskInfo(
         id=hard.TASK_ID,
@@ -135,7 +135,7 @@ TASK_CATALOG: list[TaskInfo] = [
         description="Write a SQL query from scratch that produces the shown expected output table. Exact match required for full score.",
         max_attempts=hard.MAX_ATTEMPTS,
         action_type="submit_query",
-        reward_range=[0.0, 1.0],
+        reward_range=[0.01, 0.99],
     ),
 ]
 

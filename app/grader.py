@@ -1,8 +1,8 @@
 """
 DataPipelineEnv — Grader Module
 Deterministic, pure reward functions for all 3 tasks.
-All functions return float in [0.0, 1.0].
-All exceptions are caught: never crashes, returns 0.0 on failures.
+All functions return float in (0, 1).
+All exceptions are caught: never crashes, returns 0.01 on failures.
 """
 
 from __future__ import annotations
@@ -15,6 +15,11 @@ import numpy as np
 import pandas as pd
 
 
+def clip_reward(r: float) -> float:
+    """Ensure reward is strictly within (0, 1)."""
+    return float(np.clip(r, 0.01, 0.99))
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # TASK 1: CSV Cleaning
 # ──────────────────────────────────────────────────────────────────────────────
@@ -22,35 +27,25 @@ import pandas as pd
 def grade_csv_clean(submitted_df: pd.DataFrame, reference_df: pd.DataFrame) -> float:
     """
     Grade a cleaned CSV submission against the reference DataFrame.
-    All criteria are derived dynamically from reference_df.
-
-    Partial credit breakdown:
-      +0.25  Row count matches reference (deduplication + any row filters)
-      +0.25  Null count matches reference (across all common columns)
-      +0.25  Numeric types correct (price -> float, quantity -> int where applicable)
-      +0.25  Country casing matches reference (upper / lower / title)
-
-    Returns float in [0.0, 1.0].
+    Returns float in [0.01, 0.99].
     """
     try:
         if submitted_df is None or submitted_df.empty:
-            return 0.0
+            return 0.01
         if reference_df is None or reference_df.empty:
-            return 0.0
+            return 0.01
 
         score = 0.0
 
         # ── Criterion 1: Duplicates removed ────────────────────────────────
         ref_rows = len(reference_df)
         sub_rows = len(submitted_df)
-        # Allow ±2 tolerance for minor differences
         if abs(sub_rows - ref_rows) <= 2:
             score += 0.25
         elif sub_rows <= ref_rows:
-            # Partial: fewer rows than reference but still reduced some dupes
             score += 0.10
 
-        # ── Criterion 2: Null handling — compare against reference ───────────
+        # ── Criterion 2: Null handling ──────────────────────────────────────
         common_cols = [c for c in reference_df.columns if c in submitted_df.columns]
         ref_total_nulls = reference_df[common_cols].isna().sum().sum()
         sub_total_nulls = submitted_df[common_cols].isna().sum().sum()
@@ -67,7 +62,6 @@ def grade_csv_clean(submitted_df: pd.DataFrame, reference_df: pd.DataFrame) -> f
                 if submitted_df["price"].dtype in [np.float64, np.float32, float]:
                     type_score += 0.5
                 else:
-                    # Values are numeric but maybe object type
                     pd.to_numeric(submitted_df["price"], errors="raise")
                     type_score += 0.5
             except Exception:
@@ -92,7 +86,7 @@ def grade_csv_clean(submitted_df: pd.DataFrame, reference_df: pd.DataFrame) -> f
 
         score += 0.25 * type_score
 
-        # ── Criterion 4: Country casing normalization ───────────────────────
+        # ── Criterion 4: Country casing ──────────────────────────────────────
         if "country" in submitted_df.columns and "country" in reference_df.columns:
             valid_sub = submitted_df["country"].dropna()
             valid_ref_str = reference_df["country"].dropna().astype(str)
@@ -113,10 +107,10 @@ def grade_csv_clean(submitted_df: pd.DataFrame, reference_df: pd.DataFrame) -> f
                 elif casing_ratio >= 0.70:
                     score += 0.12
 
-        return float(np.clip(score, 0.0, 1.0))
+        return clip_reward(score)
 
     except Exception:
-        return 0.0
+        return 0.01
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -128,42 +122,30 @@ def grade_sql_fix(
     db_conn: sqlite3.Connection,
     expected_df: pd.DataFrame,
 ) -> float:
-    """
-    Execute the submitted query and compare result set against expected_df.
-
-    Scoring:
-      1.0 — Result set matches exactly (order-independent)
-      0.5 — Correct columns, rows differ (wrong WHERE/JOIN filter)
-      0.0 — Wrong output, syntax error, or exception
-
-    Returns float in [0.0, 1.0].
-    """
+    """Execute the submitted query and compare result set against expected_df."""
     try:
         if not query_str or not query_str.strip():
-            return 0.0
+            return 0.01
 
         result_df = _execute_query_safe(query_str, db_conn)
         if result_df is None:
-            return 0.0
+            return 0.01
         if result_df.empty and not expected_df.empty:
-            return 0.0
+            return 0.01
 
-        # Normalize both for comparison
         result_norm = _normalize_df(result_df)
         expected_norm = _normalize_df(expected_df)
 
-        # Exact match (order-independent)
         if _dataframes_equal(result_norm, expected_norm):
-            return 1.0
+            return 0.99
 
-        # Partial: correct columns, wrong rows
         if set(result_norm.columns) == set(expected_norm.columns):
-            return 0.5
+            return clip_reward(0.5)
 
-        return 0.0
+        return 0.01
 
     except Exception:
-        return 0.0
+        return 0.01
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -175,59 +157,43 @@ def grade_query_reverse(
     db_conn: sqlite3.Connection,
     expected_df: pd.DataFrame,
 ) -> float:
-    """
-    Execute the submitted query and compare against expected_df.
-    Penalizes extra unnecessary columns.
-
-    Scoring:
-      1.0 — Result set matches exactly (order-independent, correct columns)
-      0.7 — Correct rows, extra unnecessary columns
-      0.4 — Correct columns, wrong rows (partial filter match, >50% row overlap)
-      0.0 — Wrong output, syntax error, or exception
-
-    Returns float in [0.0, 1.0].
-    """
+    """Execute the submitted query and compare against expected_df."""
     try:
         if not query_str or not query_str.strip():
-            return 0.0
+            return 0.01
 
         result_df = _execute_query_safe(query_str, db_conn)
         if result_df is None:
-            return 0.0
+            return 0.01
 
         result_norm = _normalize_df(result_df)
         expected_norm = _normalize_df(expected_df)
 
-        # Exact match
         if _dataframes_equal(result_norm, expected_norm):
-            return 1.0
+            return 0.99
 
         expected_cols = set(expected_norm.columns)
         result_cols = set(result_norm.columns)
         extra_cols = result_cols - expected_cols
         missing_cols = expected_cols - result_cols
 
-        # Case: correct rows, extra unnecessary columns
         if not missing_cols and extra_cols:
-            # Check rows match on expected columns
             result_subset = result_norm[list(expected_cols)]
             if _dataframes_equal(result_subset, expected_norm):
-                # Penalize -0.1 per extra column, min 0.5
                 penalty = min(0.2, 0.1 * len(extra_cols))
-                return float(np.clip(0.7 - penalty + 0.3 * (1 - penalty), 0.5, 0.7))
+                return clip_reward(0.7 - penalty + 0.3 * (1 - penalty))
 
-        # Case: correct columns, wrong rows (partial match)
         if not missing_cols and not extra_cols:
             overlap = _row_overlap_ratio(result_norm, expected_norm)
             if overlap >= 0.5:
-                return 0.4
+                return clip_reward(0.4)
             elif overlap > 0:
-                return 0.2
+                return clip_reward(0.2)
 
-        return 0.0
+        return 0.01
 
     except Exception:
-        return 0.0
+        return 0.01
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -249,10 +215,11 @@ def _normalize_df(df: pd.DataFrame) -> pd.DataFrame:
     """Normalize DataFrame for comparison: lower column names, sort rows."""
     df = df.copy()
     df.columns = [str(c).strip().lower() for c in df.columns]
-    # Convert numeric columns
     for col in df.columns:
-        df[col] = pd.to_numeric(df[col], errors="ignore")
-    # Sort by all columns for order-independent comparison
+        try:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(df[col])
+        except Exception:
+            pass
     try:
         df = df.sort_values(by=list(df.columns)).reset_index(drop=True)
     except Exception:
@@ -279,7 +246,6 @@ def _row_overlap_ratio(df1: pd.DataFrame, df2: pd.DataFrame) -> float:
     try:
         if df1.empty or df2.empty:
             return 0.0
-        # Convert to sets of tuples for overlap check
         set1 = set(map(tuple, df1.values.tolist()))
         set2 = set(map(tuple, df2.values.tolist()))
         overlap = len(set1 & set2)

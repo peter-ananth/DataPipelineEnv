@@ -173,11 +173,11 @@ def run_task(task_id: str, seed: int = 42) -> float:
         reset_data = reset_resp.json()
     except Exception as e:
         print(f"[ERROR] Failed to reset: {e}", file=sys.stderr)
-        return 0.0
+        return 0.01
 
     session_id = reset_data["session_id"]
     obs = reset_data["observation"]
-    best_reward = 0.0
+    best_reward = 0.01
     done = False
     attempt = 0
     rewards_list = []
@@ -233,7 +233,7 @@ def run_task(task_id: str, seed: int = 42) -> float:
 
         time.sleep(0.5)  # rate limit courtesy
 
-    success = best_reward > 0.0
+    success = best_reward > 0.01
     log_end(success=success, steps=attempt, score=best_reward, rewards=rewards_list)
 
     # Clean up session

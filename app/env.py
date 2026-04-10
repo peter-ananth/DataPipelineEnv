@@ -116,9 +116,9 @@ class DataPipelineEnv:
         """
         if self._done:
             obs = self._current_observation or {}
-            return obs, 0.0, True, {"error": "Episode is done. Call reset() first."}
+            return obs, 0.01, True, {"error": "Episode is done. Call reset() first."}
         if not self._task_id:
-            return {}, 0.0, True, {"error": "No active task. Call reset() first."}
+            return {}, 0.01, True, {"error": "No active task. Call reset() first."}
 
         # Validate action structure
         action_type = action.get("type", "")
@@ -173,12 +173,12 @@ class DataPipelineEnv:
             error_msg = str(e)
             reward = 0.0
 
-        reward = float(max(0.0, min(1.0, reward)))
+        reward = float(max(0.01, min(0.99, reward)))
         self._last_reward = reward
         self._episode_rewards.append(reward)
         self._attempt += 1
 
-        done = reward >= 1.0 or self._attempt > self._max_attempts
+        done = reward >= 0.99 or self._attempt > self._max_attempts
         self._done = done
 
         obs = dict(self._current_observation)
@@ -196,8 +196,8 @@ class DataPipelineEnv:
             },
             "done": done,
         }
-        if done and reward >= 1.0:
-            info["message"] = "🎉 Perfect score! Task complete."
+        if done and reward >= 0.99:
+            info["message"] = "🎉 Near-perfect score! Task complete."
         elif done:
             info["message"] = f"Episode over. Best score: {max(self._episode_rewards):.3f}"
 
@@ -243,7 +243,7 @@ class DataPipelineEnv:
             "attempt": self._attempt,
             "max_attempts": self._max_attempts,
             "last_reward": self._last_reward,
-            "best_reward": max(self._episode_rewards) if self._episode_rewards else 0.0,
+            "best_reward": max(self._episode_rewards) if self._episode_rewards else 0.01,
             "episode_rewards": list(self._episode_rewards),
             "current_observation": self._current_observation,
             "seed": self._episode_seed,
